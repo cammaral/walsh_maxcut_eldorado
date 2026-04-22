@@ -159,8 +159,8 @@ BENCHMARK_CONFIG = {
         },
     ],
     "fixed_train_cfg": {
-        "MAX_EPOCHS": 100,
-        "LR": 0.20,
+        "MAX_EPOCHS": 200,
+        "LR": 0.1,
     },
     "outdir": "benchmark_results_walsh_article",
 }
