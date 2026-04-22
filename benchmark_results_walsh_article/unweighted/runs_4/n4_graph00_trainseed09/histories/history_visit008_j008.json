@@ -1,0 +1,82 @@
+[
+  {
+    "epoch": 0,
+    "beta": 0.254592134553296,
+    "coefficient": 0.19574514341796423,
+    "loss": -3.3927280862363975,
+    "expected_cut": 3.3927280862363975,
+    "best_measured_cut": 4.0,
+    "success_probability_ancilla_1": 0.04448273328172238,
+    "grad": 0.5859026265401024
+  },
+  {
+    "epoch": 1,
+    "beta": 0.12573346486623627,
+    "coefficient": 0.09823372130548641,
+    "loss": -3.468192817308713,
+    "expected_cut": 3.468192817308713,
+    "best_measured_cut": 4.0,
+    "success_probability_ancilla_1": 0.037853194914132124,
+    "grad": 0.6442933484352986
+  },
+  {
+    "epoch": 2,
+    "beta": 0.031619962285050596,
+    "coefficient": 0.024825987000700003,
+    "loss": -3.497854472583127,
+    "expected_cut": 3.497854472583127,
+    "best_measured_cut": 4.0,
+    "success_probability_ancilla_1": 0.03575746701021329,
+    "grad": 0.47056751290592835
+  },
+  {
+    "epoch": 3,
+    "beta": 0.004575590199330071,
+    "coefficient": 0.003593635060236246,
+    "loss": -3.4999559644220524,
+    "expected_cut": 3.4999559644220524,
+    "best_measured_cut": 4.0,
+    "success_probability_ancilla_1": 0.03561736563162094,
+    "grad": 0.13522186042860262
+  },
+  {
+    "epoch": 4,
+    "beta": 0.0006742359624218874,
+    "coefficient": 0.0005295436063401915,
+    "loss": -3.49999919756578,
+    "expected_cut": 3.49999919756578,
+    "best_measured_cut": 4.0,
+    "success_probability_ancilla_1": 0.035614432158050824,
+    "grad": 0.019506771184540916
+  },
+  {
+    "epoch": 5,
+    "beta": 0.00014753922178711854,
+    "coefficient": 0.0001158770329798948,
+    "loss": -3.4999999854064905,
+    "expected_cut": 3.4999999854064905,
+    "best_measured_cut": 4.0,
+    "success_probability_ancilla_1": 0.03561437016513741,
+    "grad": 0.0026334837031738445
+  },
+  {
+    "epoch": 6,
+    "beta": 7.653459717604782e-05,
+    "coefficient": 6.011013194106557e-05,
+    "loss": -3.4999999997334283,
+    "expected_cut": 3.4999999997334283,
+    "best_measured_cut": 4.0,
+    "success_probability_ancilla_1": 0.03561436788633702,
+    "grad": 0.00035502312305535355
+  },
+  {
+    "epoch": 7,
+    "beta": 6.696265796590772e-05,
+    "coefficient": 5.259234850402745e-05,
+    "loss": -3.4999999999949694,
+    "expected_cut": 3.4999999999949694,
+    "best_measured_cut": 4.0,
+    "success_probability_ancilla_1": 0.03561436768960635,
+    "grad": 4.7859696050700506e-05
+  }
+]

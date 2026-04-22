@@ -1,0 +1,72 @@
+[
+  {
+    "epoch": 0,
+    "beta": 0.00021058458396655544,
+    "coefficient": 0.00016539274304232018,
+    "loss": -3.6960383215619586,
+    "expected_cut": 3.6960383215619586,
+    "best_measured_cut": 4.0,
+    "success_probability_ancilla_1": 0.06485068120186546,
+    "grad": 1.6210762865491501
+  },
+  {
+    "epoch": 1,
+    "beta": -0.28835937426701946,
+    "coefficient": -0.22040163931757942,
+    "loss": -3.8594050748280404,
+    "expected_cut": 3.8594050748280404,
+    "best_measured_cut": 4.0,
+    "success_probability_ancilla_1": 0.07091319076161295,
+    "grad": 1.44284979425493
+  },
+  {
+    "epoch": 2,
+    "beta": -0.23365784137482987,
+    "coefficient": -0.180246079398034,
+    "loss": -3.8671659528828632,
+    "expected_cut": 3.8671659528828632,
+    "best_measured_cut": 4.0,
+    "success_probability_ancilla_1": 0.06823923303400592,
+    "grad": -0.273507664460948
+  },
+  {
+    "epoch": 3,
+    "beta": -0.23375662045157025,
+    "coefficient": -0.1803195725584234,
+    "loss": -3.8671659447569375,
+    "expected_cut": 3.8671659447569375,
+    "best_measured_cut": 4.0,
+    "success_probability_ancilla_1": 0.06824349224023123,
+    "grad": 0.0004938953837019255
+  },
+  {
+    "epoch": 4,
+    "beta": -0.23374588707863758,
+    "coefficient": -0.180311586924408,
+    "loss": -3.8671659482598506,
+    "expected_cut": 3.8671659482598506,
+    "best_measured_cut": 4.0,
+    "success_probability_ancilla_1": 0.06824302932964815,
+    "grad": -5.366686466334869e-05
+  },
+  {
+    "epoch": 5,
+    "beta": -0.23374705165806603,
+    "coefficient": -0.18031245337390026,
+    "loss": -3.8671659479106726,
+    "expected_cut": 3.8671659479106726,
+    "best_measured_cut": 4.0,
+    "success_probability_ancilla_1": 0.06824307955459022,
+    "grad": 5.822897142238048e-06
+  },
+  {
+    "epoch": 6,
+    "beta": -0.23374692528007796,
+    "coefficient": -0.18031235934843937,
+    "loss": -3.867165947948928,
+    "expected_cut": 3.867165947948928,
+    "best_measured_cut": 4.0,
+    "success_probability_ancilla_1": 0.06824307410425878,
+    "grad": -6.318899403723321e-07
+  }
+]

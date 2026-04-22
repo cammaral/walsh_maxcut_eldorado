@@ -1,0 +1,72 @@
+[
+  {
+    "epoch": 0,
+    "beta": -0.1792867857246282,
+    "coefficient": -0.13932192491779868,
+    "loss": -3.2418817903406842,
+    "expected_cut": 3.2418817903406842,
+    "best_measured_cut": 3.0,
+    "success_probability_ancilla_1": 0.04685373208140221,
+    "grad": -0.8980750256612602
+  },
+  {
+    "epoch": 1,
+    "beta": 0.10405767392116305,
+    "coefficient": 0.08143299911211552,
+    "loss": -3.610079508254205,
+    "expected_cut": 3.610079508254205,
+    "best_measured_cut": 4.0,
+    "success_probability_ancilla_1": 0.04393630427550273,
+    "grad": -1.4167222982289562
+  },
+  {
+    "epoch": 2,
+    "beta": 0.26312477481237784,
+    "coefficient": 0.20201690329912128,
+    "loss": -3.671859080026027,
+    "expected_cut": 3.671859080026027,
+    "best_measured_cut": 4.0,
+    "success_probability_ancilla_1": 0.051725358618206,
+    "grad": -0.7953355044560739
+  },
+  {
+    "epoch": 3,
+    "beta": 0.26967197989599134,
+    "coefficient": 0.20681071902815817,
+    "loss": -3.6719951838857336,
+    "expected_cut": 3.6719951838857336,
+    "best_measured_cut": 4.0,
+    "success_probability_ancilla_1": 0.052170634840526364,
+    "grad": -0.03273602541806753
+  },
+  {
+    "epoch": 4,
+    "beta": 0.271593734034974,
+    "coefficient": 0.2082146954427554,
+    "loss": -3.672006655176929,
+    "expected_cut": 3.672006655176929,
+    "best_measured_cut": 4.0,
+    "success_probability_ancilla_1": 0.05230299283007728,
+    "grad": -0.009608770694913282
+  },
+  {
+    "epoch": 5,
+    "beta": 0.2721887131209778,
+    "coefficient": 0.2086490799795734,
+    "loss": -3.672007629571895,
+    "expected_cut": 3.672007629571895,
+    "best_measured_cut": 4.0,
+    "success_probability_ancilla_1": 0.052344122616128315,
+    "grad": -0.0029748954300190533
+  },
+  {
+    "epoch": 6,
+    "beta": 0.27237576422523235,
+    "coefficient": 0.2087856145875863,
+    "loss": -3.6720076854003434,
+    "expected_cut": 3.6720076854003434,
+    "best_measured_cut": 4.0,
+    "success_probability_ancilla_1": 0.052357067870380636,
+    "grad": -0.0009352555212727154
+  }
+]

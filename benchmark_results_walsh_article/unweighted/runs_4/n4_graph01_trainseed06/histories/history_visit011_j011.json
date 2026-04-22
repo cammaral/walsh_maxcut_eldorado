@@ -1,0 +1,72 @@
+[
+  {
+    "epoch": 0,
+    "beta": -0.06575395957752717,
+    "coefficient": -0.05156873992236995,
+    "loss": -3.4241911086793264,
+    "expected_cut": 3.4241911086793264,
+    "best_measured_cut": 4.0,
+    "success_probability_ancilla_1": 0.046067287902584776,
+    "grad": -1.4207168444390295
+  },
+  {
+    "epoch": 1,
+    "beta": 0.23114419060868174,
+    "coefficient": 0.17837476638992353,
+    "loss": -3.5738931165813654,
+    "expected_cut": 3.5738931165813654,
+    "best_measured_cut": 4.0,
+    "success_probability_ancilla_1": 0.05195471529411136,
+    "grad": -1.4844907509310445
+  },
+  {
+    "epoch": 2,
+    "beta": 0.140202913631152,
+    "coefficient": 0.10939923344027071,
+    "loss": -3.593011030435028,
+    "expected_cut": 3.593011030435028,
+    "best_measured_cut": 4.0,
+    "success_probability_ancilla_1": 0.04767381029817481,
+    "grad": 0.4547063848876487
+  },
+  {
+    "epoch": 3,
+    "beta": 0.15462626992491435,
+    "coefficient": 0.12048448295249997,
+    "loss": -3.593336206747889,
+    "expected_cut": 3.593336206747889,
+    "best_measured_cut": 4.0,
+    "success_probability_ancilla_1": 0.048217137593278815,
+    "grad": -0.07211678146881173
+  },
+  {
+    "epoch": 4,
+    "beta": 0.14951251783496078,
+    "coefficient": 0.11655962415514699,
+    "loss": -3.5933818735817686,
+    "expected_cut": 3.5933818735817686,
+    "best_measured_cut": 4.0,
+    "success_probability_ancilla_1": 0.04801841450777465,
+    "grad": 0.025568760449767858
+  },
+  {
+    "epoch": 5,
+    "beta": 0.15122289687380475,
+    "coefficient": 0.11787303119011518,
+    "loss": -3.5933860475078965,
+    "expected_cut": 3.5933860475078965,
+    "best_measured_cut": 4.0,
+    "success_probability_ancilla_1": 0.04808413983536326,
+    "grad": -0.008551895194219838
+  },
+  {
+    "epoch": 6,
+    "beta": 0.15063785089253523,
+    "coefficient": 0.11742384749208469,
+    "loss": -3.59338682914131,
+    "expected_cut": 3.59338682914131,
+    "best_measured_cut": 4.0,
+    "success_probability_ancilla_1": 0.04806157412731893,
+    "grad": 0.0029252299063475817
+  }
+]
