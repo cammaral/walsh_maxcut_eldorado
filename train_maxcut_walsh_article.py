@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import csv
 import hashlib
 import json
 import math
@@ -7,7 +8,7 @@ import random
 import time
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Dict, List, Tuple, Optional
+from typing import Dict, List, Tuple
 
 import matplotlib.pyplot as plt
 import networkx as nx
@@ -32,7 +33,7 @@ CONFIG = {
     "PESO_MIN": 1,
     "PESO_MAX": 3,
     "GRAPH_SEED": 42,
-    "GRAPH_EDGES": None,  # lista opcional [[u, v, w], ...] para congelar a instância exatamente
+    "GRAPH_EDGES": None,
     "REVERSE_BITS": False,
 
     # loader Walsh
@@ -172,22 +173,26 @@ def run_current_circuit(
         n=n,
         list_j=active_js,
         er=er,
-        return_full_state=False,
+        return_full_state=True,
     )
 
     success_p = float(out["success_probability_ancilla_1"])
     probs = np.asarray(out["postselected_probabilities"], dtype=float)
+    full_state = np.asarray(out["full_state"], dtype=complex)
+    postselected_state = np.asarray(out["postselected_state"], dtype=complex)
 
     if (success_p < 1e-14) or (not np.all(np.isfinite(probs))) or (float(probs.sum()) < 1e-14):
         probs = np.zeros(2**n, dtype=float)
         expected_cut = 0.0
         best_idx = 0
         best_cut = 0.0
+        max_prob = 0.0
     else:
         probs = probs / probs.sum()
         expected_cut = float(np.sum(probs * cut_vals))
         best_idx = int(np.argmax(probs))
         best_cut = float(cut_vals[best_idx])
+        max_prob = float(np.max(probs))
 
     return {
         "success_probability_ancilla_1": success_p,
@@ -195,6 +200,9 @@ def run_current_circuit(
         "expected_cut": expected_cut,
         "best_measured_idx": best_idx,
         "best_measured_cut": best_cut,
+        "max_postselected_probability": max_prob,
+        "full_state": full_state,
+        "postselected_state": postselected_state,
     }
 
 
@@ -272,6 +280,19 @@ def initial_beta_for_j(j: int, cfg: Dict[str, object]) -> float:
     return signed_base + rng.uniform(-jitter, jitter)
 
 
+def save_history_json_and_csv(history: List[Dict[str, float]], history_path_json: Path) -> Path:
+    with open(history_path_json, "w", encoding="utf-8") as f:
+        json.dump(history, f, indent=2)
+    history_path_csv = history_path_json.with_suffix(".csv")
+    if history:
+        keys = list(history[0].keys())
+        with open(history_path_csv, "w", newline="", encoding="utf-8") as f:
+            writer = csv.DictWriter(f, fieldnames=keys)
+            writer.writeheader()
+            writer.writerows(history)
+    return history_path_csv
+
+
 def train_one_unitary(
     j: int,
     visit_idx: int,
@@ -323,6 +344,7 @@ def train_one_unitary(
             "expected_cut": float(metrics1["expected_cut"]),
             "best_measured_cut": float(metrics1["best_measured_cut"]),
             "success_probability_ancilla_1": float(metrics1["success_probability_ancilla_1"]),
+            "max_postselected_probability": float(metrics1["max_postselected_probability"]),
             "grad": float(grad),
         })
 
@@ -357,9 +379,8 @@ def train_one_unitary(
     hist_dir = outdir / "histories"
     ensure_dir(hist_dir)
 
-    history_path = hist_dir / f"history_visit{visit_idx:03d}_j{j:03d}.json"
-    with open(history_path, "w", encoding="utf-8") as f:
-        json.dump(history, f, indent=2)
+    history_path_json = hist_dir / f"history_visit{visit_idx:03d}_j{j:03d}.json"
+    save_history_json_and_csv(history, history_path_json)
 
     expected_cut = float(final_metrics["expected_cut"])
     step = StepResult(
@@ -374,7 +395,7 @@ def train_one_unitary(
         success_probability_ancilla_1=float(final_metrics["success_probability_ancilla_1"]),
         epochs_run=len(history),
         stop_reason=stop_reason if kept else stop_reason + "_and_discarded_near_zero",
-        history_path=str(history_path),
+        history_path=str(history_path_json),
         improvement_vs_previous=float(expected_cut - previous_expected_cut),
     )
     return step, new_coeffs
@@ -426,6 +447,36 @@ def backward_pruning_pass(
     return coeffs, pruned_log
 
 
+def save_final_distributions_and_states(outdir: Path, final_metrics: Dict[str, object], cut_vals: np.ndarray) -> None:
+    probs = np.asarray(final_metrics["probs"], dtype=float)
+    full_state = np.asarray(final_metrics["full_state"])
+    postselected_state = np.asarray(final_metrics["postselected_state"])
+
+    np.save(outdir / "final_postselected_probabilities.npy", probs)
+    np.save(outdir / "final_full_state_realimag.npy", np.column_stack([full_state.real, full_state.imag]))
+    np.save(outdir / "final_postselected_state_realimag.npy", np.column_stack([postselected_state.real, postselected_state.imag]))
+
+    topk = min(20, len(probs))
+    top_indices = np.argsort(probs)[::-1][:topk]
+    rows = []
+    n = int(round(math.log2(len(probs)))) if len(probs) > 0 else 0
+    for rank, idx in enumerate(top_indices, start=1):
+        rows.append({
+            "rank": rank,
+            "index": int(idx),
+            "bitstring": format(int(idx), f"0{n}b") if n > 0 else "",
+            "probability": float(probs[idx]),
+            "cut_value": float(cut_vals[idx]),
+        })
+    with open(outdir / "top_postselected_bitstrings.json", "w", encoding="utf-8") as f:
+        json.dump(rows, f, indent=2)
+    if rows:
+        with open(outdir / "top_postselected_bitstrings.csv", "w", newline="", encoding="utf-8") as f:
+            writer = csv.DictWriter(f, fieldnames=list(rows[0].keys()))
+            writer.writeheader()
+            writer.writerows(rows)
+
+
 def save_global_plots(
     steps: List[StepResult],
     outdir: Path,
@@ -449,75 +500,44 @@ def save_global_plots(
         if 0 <= j <= total_possible_params:
             coeff_vector[j] = float(val)
 
-    plt.figure(figsize=(8, 4))
-    plt.plot(range(1, total_possible_params + 1), coeff_vector[1:], marker="o")
-    plt.axhline(0.0, linestyle="--")
-    plt.xlabel("j")
-    plt.ylabel("coeficiente final")
-    plt.title("Coeficientes Walsh finais")
-    plt.tight_layout()
-    plt.savefig(plot_dir / "final_coefficients_full_vector.png", dpi=180)
-    #if show_plots:
-    #    plt.show()
-    #plt.close()
+    figs = [
+        (range(1, total_possible_params + 1), coeff_vector[1:], "j", "coeficiente final", "Coeficientes Walsh finais", "final_coefficients_full_vector.png", "plot"),
+        (visits, losses, "ordem de visita", "loss = - <H_cut>", "Loss por termo visitado", "loss_progress_by_visit.png", "plot"),
+        (visits, expecteds, "ordem de visita", "cut", "Cut esperado", "expected_cut_progress_by_visit.png", "plot"),
+        (visits, bests, "ordem de visita", "cut", "Cut da bitstring mais provável", "best_measured_cut_progress_by_visit.png", "plot"),
+        (visits, keeps, "ordem de visita", "status", "Termos mantidos ou descartados", "kept_vs_discarded_by_visit.png", "step"),
+        (visits, improvements, "ordem de visita", "Δ expected_cut", "Ganho marginal por termo adicionado", "marginal_gain_by_visit.png", "bar"),
+        (visits, visited_js, "ordem de visita", "índice j visitado", "Mapa de visita dos índices", "visited_indices_map.png", "plot"),
+    ]
 
-    plt.figure(figsize=(8, 4))
-    plt.plot(visits, losses, marker="o")
-    plt.xlabel("ordem de visita")
-    plt.ylabel("loss = - <H_cut>")
-    plt.title("Loss por termo visitado")
-    plt.tight_layout()
-    plt.savefig(plot_dir / "loss_progress_by_visit.png", dpi=180)
-    #if show_plots:
-    #    plt.show()
-    #plt.close()
+    for x, y, xlabel, ylabel, title, filename, kind in figs:
+        plt.figure(figsize=(8, 4))
+        if kind == "bar":
+            plt.bar(x, y)
+        elif kind == "step":
+            plt.step(x, y, where="mid")
+            plt.yticks([0, 1], ["discard", "keep"])
+        else:
+            plt.plot(x, y, marker="o")
+        plt.xlabel(xlabel)
+        plt.ylabel(ylabel)
+        plt.title(title)
+        plt.tight_layout()
+        plt.savefig(plot_dir / filename, dpi=180)
+        if show_plots:
+            plt.show()
+        plt.close()
 
-    plt.figure(figsize=(8, 4))
-    plt.plot(visits, expecteds, marker="o", label="expected_cut")
-    plt.plot(visits, bests, marker="s", label="best_measured_cut")
-    plt.xlabel("ordem de visita")
-    plt.ylabel("cut")
-    plt.title("Cut esperado e cut medido")
-    plt.legend()
-    plt.tight_layout()
-    plt.savefig(plot_dir / "cut_progress_by_visit.png", dpi=180)
-    #if show_plots:
-    #    plt.show()
-    #plt.close()
 
-    plt.figure(figsize=(8, 4))
-    plt.step(visits, keeps, where="mid")
-    plt.yticks([0, 1], ["discard", "keep"])
-    plt.xlabel("ordem de visita")
-    plt.ylabel("status")
-    plt.title("Termos mantidos ou descartados")
-    plt.tight_layout()
-    plt.savefig(plot_dir / "kept_vs_discarded_by_visit.png", dpi=180)
-    #if show_plots:
-    #    plt.show()
-    #plt.close()
-
-    plt.figure(figsize=(8, 4))
-    plt.bar(visits, improvements)
-    plt.xlabel("ordem de visita")
-    plt.ylabel("Δ expected_cut")
-    plt.title("Ganho marginal por termo adicionado")
-    plt.tight_layout()
-    plt.savefig(plot_dir / "marginal_gain_by_visit.png", dpi=180)
-    #if show_plots:
-    #    plt.show()
-    #plt.close()
-
-    plt.figure(figsize=(8, 4))
-    plt.plot(visits, visited_js, marker="o")
-    plt.xlabel("ordem de visita")
-    plt.ylabel("índice j visitado")
-    plt.title("Mapa de visita dos índices")
-    plt.tight_layout()
-    plt.savefig(plot_dir / "visited_indices_map.png", dpi=180)
-    #if show_plots:
-    #    plt.show()
-    #plt.close()
+def save_steps_table(steps: List[StepResult], outdir: Path) -> None:
+    rows = [asdict(s) for s in steps]
+    with open(outdir / "steps.json", "w", encoding="utf-8") as f:
+        json.dump(rows, f, indent=2)
+    if rows:
+        with open(outdir / "steps.csv", "w", newline="", encoding="utf-8") as f:
+            writer = csv.DictWriter(f, fieldnames=list(rows[0].keys()))
+            writer.writeheader()
+            writer.writerows(rows)
 
 
 def run_sequential_walsh_maxcut(cfg: Dict[str, object]) -> Dict[str, object]:
@@ -650,6 +670,11 @@ def run_sequential_walsh_maxcut(cfg: Dict[str, object]) -> Dict[str, object]:
     with open(circuit_dir / "final_circuit.txt", "w", encoding="utf-8") as f:
         f.write(str(final_txt))
 
+    np.save(outdir / "final_coefficient_vector.npy", np.asarray(final_avec, dtype=float))
+    np.save(outdir / "cut_values_vector.npy", np.asarray(cut_vals, dtype=float))
+    with open(outdir / "trained_coefficients.json", "w", encoding="utf-8") as f:
+        json.dump({str(k): float(v) for k, v in sorted(coeffs.items())}, f, indent=2)
+
     save_global_plots(
         steps,
         outdir,
@@ -657,6 +682,8 @@ def run_sequential_walsh_maxcut(cfg: Dict[str, object]) -> Dict[str, object]:
         total_possible_params=total_possible_params,
         show_plots=bool(cfg["SHOW_PLOTS"]),
     )
+    save_steps_table(steps, outdir)
+    save_final_distributions_and_states(outdir, final_metrics, cut_vals)
 
     best_expected_over_time = max((s.expected_cut for s in steps), default=0.0)
     best_measured_over_time = max((s.best_measured_cut for s in steps), default=0.0)
@@ -672,6 +699,7 @@ def run_sequential_walsh_maxcut(cfg: Dict[str, object]) -> Dict[str, object]:
         "graph_density": float(nx.density(G)),
         "best_cut_bruteforce": float(best_cut),
         "best_bitstring_bruteforce": best_bitstring,
+        "best_index_bruteforce": int(best_idx),
         "candidate_order": candidate_js,
         "total_possible_parameters": int(total_possible_params),
         "visited_parameters": int(len(steps)),
@@ -688,6 +716,7 @@ def run_sequential_walsh_maxcut(cfg: Dict[str, object]) -> Dict[str, object]:
         "final_best_measured_cut": float(final_best_cut),
         "best_measured_cut_over_evolution": float(best_measured_over_time),
         "final_success_probability_ancilla_1": float(final_metrics["success_probability_ancilla_1"]),
+        "final_max_postselected_probability": float(final_metrics["max_postselected_probability"]),
         "gap_expected_to_bruteforce": float(best_cut - float(final_metrics["expected_cut"])),
         "gap_measured_to_bruteforce": float(best_cut - final_best_cut),
         "approx_ratio_measured": float(final_best_cut / best_cut) if abs(best_cut) > 1e-12 else 0.0,

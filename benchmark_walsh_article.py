@@ -8,10 +8,10 @@ import math
 import random
 from pathlib import Path
 from statistics import mean, pstdev
-from typing import Dict, List, Tuple
+from typing import Dict, List
 
 import networkx as nx
-import numpy as np
+from tqdm.auto import tqdm
 
 from train_maxcut_walsh_article import CONFIG, run_sequential_walsh_maxcut
 
@@ -56,26 +56,111 @@ BENCHMARK_CONFIG = {
             },
         },
     ],
-    "base_train_cfg": {
-        "ER": 1.0,
-        "MAX_TERMS": None,
-        "A_MAX": math.pi / 4,
-        "INIT_BETA": 0.35,
+    "train_scenarios": [
+        {
+            "name": "baseline",
+            "ER": 1.0,
+            "MAX_TERMS": None,
+            "A_MAX": math.pi / 4,
+            "INIT_BETA": 0.35,
+            "FD_EPS": 1e-2,
+            "LOSS_TOL_LAST5": 1e-3,
+            "PATIENCE_LAST5": 5,
+            "COEF_ZERO_TOL": 1e-3,
+            "IMPROVEMENT_TOL": 1e-3,
+            "SATURATION_PATIENCE": 100,
+            "INDEX_STRATEGY": "ascending",
+            "ENABLE_BACKWARD_PRUNING": False,
+            "BACKWARD_PASSES": 1,
+            "PRUNE_IMPROVEMENT_TOL": 1e-6,
+            "SHOW_PLOTS": False,
+            "INIT_BETA_JITTER": 0.05,
+            "REVERSE_BITS": False,
+        },
+        {
+            "name": "coarse_loader",
+            "ER": 0.75,
+            "MAX_TERMS": None,
+            "A_MAX": math.pi / 5,
+            "INIT_BETA": 0.25,
+            "FD_EPS": 2e-2,
+            "LOSS_TOL_LAST5": 2e-3,
+            "PATIENCE_LAST5": 7,
+            "COEF_ZERO_TOL": 2e-3,
+            "IMPROVEMENT_TOL": 2e-3,
+            "SATURATION_PATIENCE": 60,
+            "INDEX_STRATEGY": "ascending",
+            "ENABLE_BACKWARD_PRUNING": False,
+            "BACKWARD_PASSES": 1,
+            "PRUNE_IMPROVEMENT_TOL": 1e-6,
+            "SHOW_PLOTS": False,
+            "INIT_BETA_JITTER": 0.03,
+            "REVERSE_BITS": False,
+        },
+        {
+            "name": "aggressive_loader",
+            "ER": 1.25,
+            "MAX_TERMS": None,
+            "A_MAX": math.pi / 3,
+            "INIT_BETA": 0.50,
+            "FD_EPS": 5e-3,
+            "LOSS_TOL_LAST5": 5e-4,
+            "PATIENCE_LAST5": 5,
+            "COEF_ZERO_TOL": 5e-4,
+            "IMPROVEMENT_TOL": 5e-4,
+            "SATURATION_PATIENCE": 150,
+            "INDEX_STRATEGY": "ascending",
+            "ENABLE_BACKWARD_PRUNING": False,
+            "BACKWARD_PASSES": 1,
+            "PRUNE_IMPROVEMENT_TOL": 1e-6,
+            "SHOW_PLOTS": False,
+            "INIT_BETA_JITTER": 0.08,
+            "REVERSE_BITS": False,
+        },
+        {
+            "name": "sparse_threshold",
+            "ER": 1.0,
+            "MAX_TERMS": None,
+            "A_MAX": math.pi / 4,
+            "INIT_BETA": 0.35,
+            "FD_EPS": 1e-2,
+            "LOSS_TOL_LAST5": 1e-3,
+            "PATIENCE_LAST5": 5,
+            "COEF_ZERO_TOL": 5e-3,
+            "IMPROVEMENT_TOL": 3e-3,
+            "SATURATION_PATIENCE": 40,
+            "INDEX_STRATEGY": "ascending",
+            "ENABLE_BACKWARD_PRUNING": False,
+            "BACKWARD_PASSES": 1,
+            "PRUNE_IMPROVEMENT_TOL": 1e-6,
+            "SHOW_PLOTS": False,
+            "INIT_BETA_JITTER": 0.05,
+            "REVERSE_BITS": False,
+        },
+        {
+            "name": "with_pruning",
+            "ER": 1.0,
+            "MAX_TERMS": None,
+            "A_MAX": math.pi / 4,
+            "INIT_BETA": 0.35,
+            "FD_EPS": 1e-2,
+            "LOSS_TOL_LAST5": 1e-3,
+            "PATIENCE_LAST5": 5,
+            "COEF_ZERO_TOL": 1e-3,
+            "IMPROVEMENT_TOL": 1e-3,
+            "SATURATION_PATIENCE": 100,
+            "INDEX_STRATEGY": "ascending",
+            "ENABLE_BACKWARD_PRUNING": True,
+            "BACKWARD_PASSES": 2,
+            "PRUNE_IMPROVEMENT_TOL": 1e-4,
+            "SHOW_PLOTS": False,
+            "INIT_BETA_JITTER": 0.05,
+            "REVERSE_BITS": False,
+        },
+    ],
+    "fixed_train_cfg": {
         "MAX_EPOCHS": 100,
         "LR": 0.20,
-        "FD_EPS": 1e-2,
-        "LOSS_TOL_LAST5": 1e-3,
-        "PATIENCE_LAST5": 5,
-        "COEF_ZERO_TOL": 1e-3,
-        "IMPROVEMENT_TOL": 1e-3,
-        "SATURATION_PATIENCE": 100,
-        "INDEX_STRATEGY": "ascending",
-        "ENABLE_BACKWARD_PRUNING": False,
-        "BACKWARD_PASSES": 1,
-        "PRUNE_IMPROVEMENT_TOL": 1e-6,
-        "SHOW_PLOTS": False,
-        "INIT_BETA_JITTER": 0.05,
-        "REVERSE_BITS": False,
     },
     "outdir": "benchmark_results_walsh_article",
 }
@@ -146,7 +231,6 @@ def generate_unique_graph_bank(
     used_signatures = set()
     out = []
 
-    # garante 1 completo
     full_seed = 10_000 + n_vertices * 101 + len(family["name"])
     G_full = sample_graph(n_vertices, 1.0, family, full_seed)
     sig_full = graph_signature_from_nx(G_full)
@@ -190,24 +274,33 @@ def generate_unique_graph_bank(
 def aggregate_group(rows: List[Dict[str, object]]) -> Dict[str, object]:
     if not rows:
         return {}
+
+    def g(key: str) -> List[float]:
+        return [float(r[key]) for r in rows]
+
     return {
         "family": rows[0]["family"],
+        "scenario": rows[0]["scenario"],
         "n_vertices": rows[0]["n_vertices"],
         "n_runs": len(rows),
-        "mean_final_expected_cut": mean(float(r["final_expected_cut"]) for r in rows),
-        "std_final_expected_cut": pstdev(float(r["final_expected_cut"]) for r in rows),
-        "mean_final_best_measured_cut": mean(float(r["final_best_measured_cut"]) for r in rows),
-        "std_final_best_measured_cut": pstdev(float(r["final_best_measured_cut"]) for r in rows),
-        "mean_gap_measured_to_bruteforce": mean(float(r["gap_measured_to_bruteforce"]) for r in rows),
-        "std_gap_measured_to_bruteforce": pstdev(float(r["gap_measured_to_bruteforce"]) for r in rows),
-        "mean_approx_ratio_measured": mean(float(r["approx_ratio_measured"]) for r in rows),
-        "std_approx_ratio_measured": pstdev(float(r["approx_ratio_measured"]) for r in rows),
-        "mean_active_parameter_count": mean(float(r["active_parameter_count"]) for r in rows),
-        "std_active_parameter_count": pstdev(float(r["active_parameter_count"]) for r in rows),
-        "mean_compression_ratio": mean(float(r["compression_ratio_active_over_total"]) for r in rows),
-        "std_compression_ratio": pstdev(float(r["compression_ratio_active_over_total"]) for r in rows),
-        "mean_success_probability": mean(float(r["final_success_probability_ancilla_1"]) for r in rows),
-        "std_success_probability": pstdev(float(r["final_success_probability_ancilla_1"]) for r in rows),
+        "mean_final_expected_cut": mean(g("final_expected_cut")),
+        "std_final_expected_cut": pstdev(g("final_expected_cut")),
+        "mean_final_best_measured_cut": mean(g("final_best_measured_cut")),
+        "std_final_best_measured_cut": pstdev(g("final_best_measured_cut")),
+        "mean_gap_measured_to_bruteforce": mean(g("gap_measured_to_bruteforce")),
+        "std_gap_measured_to_bruteforce": pstdev(g("gap_measured_to_bruteforce")),
+        "mean_approx_ratio_measured": mean(g("approx_ratio_measured")),
+        "std_approx_ratio_measured": pstdev(g("approx_ratio_measured")),
+        "mean_active_parameter_count": mean(g("active_parameter_count")),
+        "std_active_parameter_count": pstdev(g("active_parameter_count")),
+        "mean_compression_ratio": mean(g("compression_ratio_active_over_total")),
+        "std_compression_ratio": pstdev(g("compression_ratio_active_over_total")),
+        "mean_success_probability": mean(g("final_success_probability_ancilla_1")),
+        "std_success_probability": pstdev(g("final_success_probability_ancilla_1")),
+        "mean_elapsed_seconds": mean(g("elapsed_seconds")),
+        "std_elapsed_seconds": pstdev(g("elapsed_seconds")),
+        "mean_visited_parameters": mean(g("visited_parameters")),
+        "std_visited_parameters": pstdev(g("visited_parameters")),
     }
 
 
@@ -222,6 +315,21 @@ def save_csv(rows: List[Dict[str, object]], path: Path) -> None:
             writer.writerow(row)
 
 
+def expand_run_plan() -> List[Dict[str, object]]:
+    plan = []
+    for family in BENCHMARK_CONFIG["families"]:
+        for scenario in BENCHMARK_CONFIG["train_scenarios"]:
+            for n_vertices in BENCHMARK_CONFIG["vertex_sizes"]:
+                plan.append({
+                    "family": family["name"],
+                    "scenario": scenario["name"],
+                    "n_vertices": n_vertices,
+                    "instances": BENCHMARK_CONFIG["instances_per_size"],
+                    "train_seeds": len(BENCHMARK_CONFIG["train_seeds"]),
+                })
+    return plan
+
+
 def run_benchmark() -> Dict[str, object]:
     outdir = Path(BENCHMARK_CONFIG["outdir"])
     ensure_dir(outdir)
@@ -230,19 +338,34 @@ def run_benchmark() -> Dict[str, object]:
     aggregate_rows: List[Dict[str, object]] = []
     graph_bank_rows: List[Dict[str, object]] = []
 
+    run_plan = []
+    graph_banks = {}
+    for family in BENCHMARK_CONFIG["families"]:
+        family_name = family["name"]
+        for n_vertices in BENCHMARK_CONFIG["vertex_sizes"]:
+            bank = generate_unique_graph_bank(
+                n_vertices=n_vertices,
+                family=family,
+                instances_per_size=BENCHMARK_CONFIG["instances_per_size"],
+            )
+            graph_banks[(family_name, n_vertices)] = bank
+            run_plan.extend([
+                (family, n_vertices, graph_info, scenario, train_seed)
+                for scenario in BENCHMARK_CONFIG["train_scenarios"]
+                for graph_info in bank
+                for train_seed in BENCHMARK_CONFIG["train_seeds"]
+            ])
+
+    total_runs = len(run_plan)
+    pbar = tqdm(total=total_runs, desc="Walsh-MaxCut benchmark", unit="run")
+
     for family in BENCHMARK_CONFIG["families"]:
         family_name = family["name"]
         family_dir = outdir / family_name
         ensure_dir(family_dir)
 
         for n_vertices in BENCHMARK_CONFIG["vertex_sizes"]:
-            graph_bank = generate_unique_graph_bank(
-                n_vertices=n_vertices,
-                family=family,
-                instances_per_size=BENCHMARK_CONFIG["instances_per_size"],
-            )
-
-            # salva banco de grafos para auditoria
+            graph_bank = graph_banks[(family_name, n_vertices)]
             with open(family_dir / f"graph_bank_n{n_vertices}.json", "w", encoding="utf-8") as f:
                 json.dump(graph_bank, f, indent=2)
 
@@ -253,63 +376,87 @@ def run_benchmark() -> Dict[str, object]:
                     **{k: v for k, v in graph_info.items() if k != "graph_edges"},
                 })
 
-                for train_seed in BENCHMARK_CONFIG["train_seeds"]:
-                    cfg = copy.deepcopy(CONFIG)
-                    cfg.update(copy.deepcopy(BENCHMARK_CONFIG["base_train_cfg"]))
-                    cfg["N_VERTICES"] = n_vertices
-                    cfg["PROB_ARESTA"] = graph_info["prob_aresta"]
-                    cfg["GRAPH_SEED"] = graph_info["graph_seed"]
-                    cfg["GRAPH_EDGES"] = graph_info["graph_edges"]
-                    cfg["COM_PESO"] = bool(family["com_peso"])
-                    if family["weight_mode"] == "positive":
-                        cfg["PESO_MIN"] = int(family["peso_min"])
-                        cfg["PESO_MAX"] = int(family["peso_max"])
-                    elif family["weight_mode"] == "signed":
-                        cfg["PESO_MIN"] = int(family["peso_min"])
-                        cfg["PESO_MAX"] = int(family["peso_max"])
-                    else:
-                        cfg["PESO_MIN"] = 1
-                        cfg["PESO_MAX"] = 1
-                    cfg["TRAIN_SEED"] = int(train_seed)
+            for scenario in BENCHMARK_CONFIG["train_scenarios"]:
+                scenario_name = scenario["name"]
+                scenario_dir = family_dir / scenario_name / f"n{n_vertices}"
+                ensure_dir(scenario_dir)
 
-                    run_name = f"n{n_vertices}_graph{graph_info['graph_id']:02d}_trainseed{train_seed:02d}"
-                    cfg["OUTDIR"] = str(family_dir / f"runs_{n_vertices}" / run_name)
+                for graph_info in graph_bank:
+                    for train_seed in BENCHMARK_CONFIG["train_seeds"]:
+                        cfg = copy.deepcopy(CONFIG)
+                        cfg.update(copy.deepcopy(BENCHMARK_CONFIG["fixed_train_cfg"]))
+                        cfg.update(copy.deepcopy(scenario))
+                        cfg["N_VERTICES"] = n_vertices
+                        cfg["PROB_ARESTA"] = graph_info["prob_aresta"]
+                        cfg["GRAPH_SEED"] = graph_info["graph_seed"]
+                        cfg["GRAPH_EDGES"] = graph_info["graph_edges"]
+                        cfg["COM_PESO"] = bool(family["com_peso"])
+                        if family["weight_mode"] == "positive":
+                            cfg["PESO_MIN"] = int(family["peso_min"])
+                            cfg["PESO_MAX"] = int(family["peso_max"])
+                        elif family["weight_mode"] == "signed":
+                            cfg["PESO_MIN"] = int(family["peso_min"])
+                            cfg["PESO_MAX"] = int(family["peso_max"])
+                        else:
+                            cfg["PESO_MIN"] = 1
+                            cfg["PESO_MAX"] = 1
+                        cfg["TRAIN_SEED"] = int(train_seed)
 
-                    summary = run_sequential_walsh_maxcut(cfg)
+                        run_name = f"graph{graph_info['graph_id']:02d}_trainseed{train_seed:02d}"
+                        cfg["OUTDIR"] = str(scenario_dir / run_name)
 
-                    row = {
-                        "family": family_name,
-                        "n_vertices": n_vertices,
-                        "graph_id": graph_info["graph_id"],
-                        "graph_seed": graph_info["graph_seed"],
-                        "graph_signature": graph_info["graph_signature"],
-                        "prob_aresta": graph_info["prob_aresta"],
-                        "train_seed": train_seed,
-                        "best_cut_bruteforce": summary["best_cut_bruteforce"],
-                        "final_expected_cut": summary["final_expected_cut"],
-                        "final_best_measured_cut": summary["final_best_measured_cut"],
-                        "gap_expected_to_bruteforce": summary["gap_expected_to_bruteforce"],
-                        "gap_measured_to_bruteforce": summary["gap_measured_to_bruteforce"],
-                        "approx_ratio_measured": summary["approx_ratio_measured"],
-                        "total_possible_parameters": summary["total_possible_parameters"],
-                        "visited_parameters": summary["visited_parameters"],
-                        "active_parameter_count": summary["active_parameter_count"],
-                        "compression_ratio_active_over_total": summary["compression_ratio_active_over_total"],
-                        "final_success_probability_ancilla_1": summary["final_success_probability_ancilla_1"],
-                        "elapsed_seconds": summary["elapsed_seconds"],
-                        "outdir": cfg["OUTDIR"],
-                    }
-                    all_run_rows.append(row)
+                        pbar.set_postfix({
+                            "family": family_name,
+                            "scenario": scenario_name,
+                            "n": n_vertices,
+                            "graph": graph_info["graph_id"],
+                            "seed": train_seed,
+                        })
 
-            family_rows = [r for r in all_run_rows if r["family"] == family_name and r["n_vertices"] == n_vertices]
-            aggregate_rows.append(aggregate_group(family_rows))
+                        summary = run_sequential_walsh_maxcut(cfg)
+
+                        row = {
+                            "family": family_name,
+                            "scenario": scenario_name,
+                            "n_vertices": n_vertices,
+                            "graph_id": graph_info["graph_id"],
+                            "graph_seed": graph_info["graph_seed"],
+                            "graph_signature": graph_info["graph_signature"],
+                            "prob_aresta": graph_info["prob_aresta"],
+                            "train_seed": train_seed,
+                            "best_cut_bruteforce": summary["best_cut_bruteforce"],
+                            "final_expected_cut": summary["final_expected_cut"],
+                            "final_best_measured_cut": summary["final_best_measured_cut"],
+                            "gap_expected_to_bruteforce": summary["gap_expected_to_bruteforce"],
+                            "gap_measured_to_bruteforce": summary["gap_measured_to_bruteforce"],
+                            "approx_ratio_measured": summary["approx_ratio_measured"],
+                            "total_possible_parameters": summary["total_possible_parameters"],
+                            "visited_parameters": summary["visited_parameters"],
+                            "active_parameter_count": summary["active_parameter_count"],
+                            "compression_ratio_active_over_total": summary["compression_ratio_active_over_total"],
+                            "final_success_probability_ancilla_1": summary["final_success_probability_ancilla_1"],
+                            "final_max_postselected_probability": summary["final_max_postselected_probability"],
+                            "elapsed_seconds": summary["elapsed_seconds"],
+                            "outdir": cfg["OUTDIR"],
+                        }
+                        all_run_rows.append(row)
+                        pbar.update(1)
+
+                family_rows = [
+                    r for r in all_run_rows
+                    if r["family"] == family_name and r["scenario"] == scenario_name and r["n_vertices"] == n_vertices
+                ]
+                aggregate_rows.append(aggregate_group(family_rows))
+
+    pbar.close()
 
     save_csv(all_run_rows, outdir / "all_runs.csv")
-    save_csv(aggregate_rows, outdir / "aggregated_by_family_and_size.csv")
+    save_csv(aggregate_rows, outdir / "aggregated_by_family_scenario_and_size.csv")
     save_csv(graph_bank_rows, outdir / "graph_bank_catalog.csv")
 
     result = {
         "benchmark_config": BENCHMARK_CONFIG,
+        "run_plan_summary": expand_run_plan(),
         "n_runs": len(all_run_rows),
         "all_runs": all_run_rows,
         "aggregates": aggregate_rows,
@@ -324,5 +471,5 @@ if __name__ == "__main__":
     out = run_benchmark()
     print(json.dumps({
         "n_runs": out["n_runs"],
-        "aggregates": out["aggregates"],
+        "aggregates": out["aggregates"][:10],
     }, indent=2))
