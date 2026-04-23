@@ -63,7 +63,6 @@ BENCHMARK_CONFIG = {
             "MAX_TERMS": None,
             "A_MAX": math.pi / 4,
             "INIT_BETA": 0.35,
-            "FD_EPS": 1e-2,
             "LOSS_TOL_LAST5": 1e-3,
             "PATIENCE_LAST5": 5,
             "COEF_ZERO_TOL": 1e-3,
@@ -83,7 +82,6 @@ BENCHMARK_CONFIG = {
             "MAX_TERMS": None,
             "A_MAX": math.pi / 5,
             "INIT_BETA": 0.25,
-            "FD_EPS": 2e-2,
             "LOSS_TOL_LAST5": 2e-3,
             "PATIENCE_LAST5": 7,
             "COEF_ZERO_TOL": 2e-3,
@@ -103,7 +101,6 @@ BENCHMARK_CONFIG = {
             "MAX_TERMS": None,
             "A_MAX": math.pi / 3,
             "INIT_BETA": 0.50,
-            "FD_EPS": 5e-3,
             "LOSS_TOL_LAST5": 5e-4,
             "PATIENCE_LAST5": 5,
             "COEF_ZERO_TOL": 5e-4,
@@ -123,7 +120,6 @@ BENCHMARK_CONFIG = {
             "MAX_TERMS": None,
             "A_MAX": math.pi / 4,
             "INIT_BETA": 0.35,
-            "FD_EPS": 1e-2,
             "LOSS_TOL_LAST5": 1e-3,
             "PATIENCE_LAST5": 5,
             "COEF_ZERO_TOL": 5e-3,
@@ -143,7 +139,6 @@ BENCHMARK_CONFIG = {
             "MAX_TERMS": None,
             "A_MAX": math.pi / 4,
             "INIT_BETA": 0.35,
-            "FD_EPS": 1e-2,
             "LOSS_TOL_LAST5": 1e-3,
             "PATIENCE_LAST5": 5,
             "COEF_ZERO_TOL": 1e-3,
@@ -160,7 +155,11 @@ BENCHMARK_CONFIG = {
     ],
     "fixed_train_cfg": {
         "MAX_EPOCHS": 200,
-        "LR": 0.1,
+        "LR": 0.01,
+        "OPTIMIZER": "adam",
+        "ADAM_BETA1": 0.9,
+        "ADAM_BETA2": 0.999,
+        "ADAM_EPS": 1e-8,
     },
     "outdir": "benchmark_results_walsh_article",
 }
@@ -278,11 +277,13 @@ def aggregate_group(rows: List[Dict[str, object]]) -> Dict[str, object]:
     def g(key: str) -> List[float]:
         return [float(r[key]) for r in rows]
 
-    return {
+    base = {
         "family": rows[0]["family"],
         "scenario": rows[0]["scenario"],
         "n_vertices": rows[0]["n_vertices"],
         "n_runs": len(rows),
+        "optimizer": rows[0].get("optimizer", "adam"),
+        "learning_rate": rows[0].get("learning_rate", BENCHMARK_CONFIG["fixed_train_cfg"]["LR"]),
         "mean_final_expected_cut": mean(g("final_expected_cut")),
         "std_final_expected_cut": pstdev(g("final_expected_cut")),
         "mean_final_best_measured_cut": mean(g("final_best_measured_cut")),
@@ -302,6 +303,7 @@ def aggregate_group(rows: List[Dict[str, object]]) -> Dict[str, object]:
         "mean_visited_parameters": mean(g("visited_parameters")),
         "std_visited_parameters": pstdev(g("visited_parameters")),
     }
+    return base
 
 
 def save_csv(rows: List[Dict[str, object]], path: Path) -> None:
@@ -326,6 +328,7 @@ def expand_run_plan() -> List[Dict[str, object]]:
                     "n_vertices": n_vertices,
                     "instances": BENCHMARK_CONFIG["instances_per_size"],
                     "train_seeds": len(BENCHMARK_CONFIG["train_seeds"]),
+                    "optimizer": BENCHMARK_CONFIG["fixed_train_cfg"]["OPTIMIZER"],
                 })
     return plan
 
@@ -411,6 +414,7 @@ def run_benchmark() -> Dict[str, object]:
                             "n": n_vertices,
                             "graph": graph_info["graph_id"],
                             "seed": train_seed,
+                            "opt": cfg["OPTIMIZER"],
                         })
 
                         summary = run_sequential_walsh_maxcut(cfg)
@@ -424,6 +428,11 @@ def run_benchmark() -> Dict[str, object]:
                             "graph_signature": graph_info["graph_signature"],
                             "prob_aresta": graph_info["prob_aresta"],
                             "train_seed": train_seed,
+                            "optimizer": cfg["OPTIMIZER"],
+                            "learning_rate": cfg["LR"],
+                            "adam_beta1": cfg["ADAM_BETA1"],
+                            "adam_beta2": cfg["ADAM_BETA2"],
+                            "adam_eps": cfg["ADAM_EPS"],
                             "best_cut_bruteforce": summary["best_cut_bruteforce"],
                             "final_expected_cut": summary["final_expected_cut"],
                             "final_best_measured_cut": summary["final_best_measured_cut"],

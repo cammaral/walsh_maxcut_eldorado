@@ -13,6 +13,8 @@ from typing import Dict, List, Tuple
 import matplotlib.pyplot as plt
 import networkx as nx
 import numpy as np
+import pennylane as qml
+import pennylane.numpy as pnp
 
 from maxcut.maxcut import (
     brute_force_maxcut,
@@ -22,7 +24,7 @@ from maxcut.maxcut import (
     index_to_bitstring,
     make_graph,
 )
-from walsh.quantum_sub import draw_subcircuit, run_subcircuit
+from walsh.quantum_sub import draw_subcircuit, run_subcircuit, run_subcircuit_differentiable
 
 
 CONFIG = {
@@ -50,6 +52,10 @@ CONFIG = {
     "PATIENCE_LAST5": 5,
     "TRAIN_SEED": 0,
     "INIT_BETA_JITTER": 0.05,
+    "OPTIMIZER": "adam",
+    "ADAM_BETA1": 0.9,
+    "ADAM_BETA2": 0.999,
+    "ADAM_EPS": 1e-8,
 
     # poda / saturação
     "COEF_ZERO_TOL": 1e-3,
@@ -98,12 +104,32 @@ def bounded_coef(beta: float, a_max: float) -> float:
     return a_max * math.tanh(beta)
 
 
+def bounded_coef_pl(beta, a_max: float):
+    return a_max * qml.math.tanh(beta)
+
+
 def build_avec_from_dict(n: int, coeffs: Dict[int, float]) -> np.ndarray:
     avec = np.zeros(2**n, dtype=float)
     for j, val in coeffs.items():
         if 0 <= j < 2**n:
             avec[j] = float(val)
     return avec
+
+
+def build_avec_from_dict_pl(n: int, coeffs: Dict[int, float]) -> pnp.ndarray:
+    avec = pnp.zeros(2**n, dtype=float)
+    for j, val in coeffs.items():
+        if 0 <= j < 2**n:
+            avec[j] = float(val)
+    return avec
+
+
+def build_avec_for_beta_pl(n: int, frozen_coeffs: Dict[int, float], j: int, beta, a_max: float) -> pnp.ndarray:
+    avec = build_avec_from_dict_pl(n, frozen_coeffs)
+    coef_j = bounded_coef_pl(beta, a_max)
+    one_hot = pnp.zeros(2**n, dtype=float)
+    one_hot[j] = 1.0
+    return avec + coef_j * one_hot
 
 
 def get_all_cut_values(G: nx.Graph, reverse_bits: bool) -> np.ndarray:
@@ -206,8 +232,53 @@ def run_current_circuit(
     }
 
 
+def run_current_circuit_differentiable(
+    G: nx.Graph,
+    n: int,
+    coeffs: Dict[int, float],
+    reverse_bits: bool,
+    er: float,
+    cut_vals: np.ndarray,
+) -> Dict[str, object]:
+    del G, reverse_bits
+    avec = build_avec_from_dict_pl(n, coeffs)
+    active_js = [j for j, v in sorted(coeffs.items()) if j != 0 and abs(v) > 0.0]
+    out = run_subcircuit_differentiable(
+        avec=avec,
+        n=n,
+        list_j=active_js,
+        er=er,
+        return_full_state=True,
+    )
+
+    probs = out["postselected_probabilities"]
+    cut_vals_pl = pnp.array(cut_vals, dtype=float)
+    expected_cut = qml.math.sum(probs * cut_vals_pl)
+
+    probs_np = np.asarray(probs, dtype=float)
+    if probs_np.size == 0 or not np.all(np.isfinite(probs_np)):
+        best_idx = 0
+        best_cut = 0.0
+        max_prob = 0.0
+    else:
+        best_idx = int(np.argmax(probs_np))
+        best_cut = float(cut_vals[best_idx])
+        max_prob = float(np.max(probs_np))
+
+    return {
+        "success_probability_ancilla_1": out["success_probability_ancilla_1"],
+        "probs": probs,
+        "expected_cut": expected_cut,
+        "best_measured_idx": best_idx,
+        "best_measured_cut": best_cut,
+        "max_postselected_probability": max_prob,
+        "full_state": out["full_state"],
+        "postselected_state": out["postselected_state"],
+    }
+
+
 def objective_for_single_j(
-    beta: float,
+    beta,
     j: int,
     frozen_coeffs: Dict[int, float],
     G: nx.Graph,
@@ -216,20 +287,36 @@ def objective_for_single_j(
     er: float,
     a_max: float,
     cut_vals: np.ndarray,
-) -> Tuple[float, Dict[str, object]]:
+) -> Tuple[object, Dict[str, object]]:
     coeffs = dict(frozen_coeffs)
-    coeffs[j] = bounded_coef(beta, a_max)
+    coeffs[j] = 0.0
 
-    metrics = run_current_circuit(
-        G=G,
+    avec = build_avec_for_beta_pl(n, frozen_coeffs, j, beta, a_max)
+    active_js = [idx for idx, val in sorted(coeffs.items()) if idx != 0 and abs(val) > 0.0]
+    if j not in active_js:
+        active_js.append(j)
+        active_js = sorted(active_js)
+
+    out = run_subcircuit_differentiable(
+        avec=avec,
         n=n,
-        coeffs=coeffs,
-        reverse_bits=reverse_bits,
+        list_j=active_js,
         er=er,
-        cut_vals=cut_vals,
+        return_full_state=True,
     )
 
-    loss = - float(metrics["expected_cut"])
+    probs = out["postselected_probabilities"]
+    cut_vals_pl = pnp.array(cut_vals, dtype=float)
+    expected_cut = qml.math.sum(probs * cut_vals_pl)
+    loss = -expected_cut
+
+    metrics = {
+        "success_probability_ancilla_1": out["success_probability_ancilla_1"],
+        "probs": probs,
+        "expected_cut": expected_cut,
+        "full_state": out["full_state"],
+        "postselected_state": out["postselected_state"],
+    }
     return loss, metrics
 
 
@@ -305,52 +392,73 @@ def train_one_unitary(
     cut_vals: np.ndarray,
     previous_expected_cut: float,
 ) -> Tuple[StepResult, Dict[int, float]]:
-    beta = initial_beta_for_j(j, cfg)
+    beta = pnp.array(initial_beta_for_j(j, cfg), requires_grad=True)
 
     lr = float(cfg["LR"])
-    fd_eps = float(cfg["FD_EPS"])
     max_epochs = int(cfg["MAX_EPOCHS"])
     loss_tol_last5 = float(cfg["LOSS_TOL_LAST5"])
     coef_zero_tol = float(cfg["COEF_ZERO_TOL"])
     er = float(cfg["ER"])
     a_max = float(cfg["A_MAX"])
 
+    optimizer_name = str(cfg.get("OPTIMIZER", "adam")).lower()
+    if optimizer_name != "adam":
+        raise ValueError(f"OPTIMIZER desconhecido: {optimizer_name}. Esta versão usa Adam + backprop.")
+
+    opt = qml.AdamOptimizer(
+        stepsize=lr,
+        beta1=float(cfg.get("ADAM_BETA1", 0.9)),
+        beta2=float(cfg.get("ADAM_BETA2", 0.999)),
+        eps=float(cfg.get("ADAM_EPS", 1e-8)),
+    )
+
     history = []
-    best_beta = beta
+    best_beta = float(beta)
     best_loss = float("inf")
     stop_reason = "max_epochs"
 
-    for epoch in range(max_epochs):
-        loss_plus, _ = objective_for_single_j(
-            beta + fd_eps, j, frozen_coeffs, G, n, reverse_bits, er, a_max, cut_vals
+    def scalar_loss(beta_var):
+        loss_val, _ = objective_for_single_j(
+            beta_var, j, frozen_coeffs, G, n, reverse_bits, er, a_max, cut_vals
         )
-        loss_minus, _ = objective_for_single_j(
-            beta - fd_eps, j, frozen_coeffs, G, n, reverse_bits, er, a_max, cut_vals
-        )
+        return loss_val
 
-        grad = (loss_plus - loss_minus) / (2.0 * fd_eps)
-        beta = beta - lr * grad
+    grad_fn = qml.grad(scalar_loss)
+
+    for epoch in range(max_epochs):
+        grad_before = grad_fn(beta)
+        beta, _ = opt.step_and_cost(scalar_loss, beta)
 
         loss1, metrics1 = objective_for_single_j(
             beta, j, frozen_coeffs, G, n, reverse_bits, er, a_max, cut_vals
         )
-        coef = bounded_coef(beta, a_max)
+        loss1_float = float(loss1)
+        coef = bounded_coef(float(beta), a_max)
+
+        probs_np = np.asarray(metrics1["probs"], dtype=float)
+        if probs_np.size == 0 or not np.all(np.isfinite(probs_np)):
+            best_measured_cut_epoch = 0.0
+            max_postselected_probability_epoch = 0.0
+        else:
+            best_idx_epoch = int(np.argmax(probs_np))
+            best_measured_cut_epoch = float(cut_vals[best_idx_epoch])
+            max_postselected_probability_epoch = float(np.max(probs_np))
 
         history.append({
             "epoch": epoch,
             "beta": float(beta),
             "coefficient": float(coef),
-            "loss": float(loss1),
+            "loss": loss1_float,
             "expected_cut": float(metrics1["expected_cut"]),
-            "best_measured_cut": float(metrics1["best_measured_cut"]),
+            "best_measured_cut": best_measured_cut_epoch,
             "success_probability_ancilla_1": float(metrics1["success_probability_ancilla_1"]),
-            "max_postselected_probability": float(metrics1["max_postselected_probability"]),
-            "grad": float(grad),
+            "max_postselected_probability": max_postselected_probability_epoch,
+            "grad": float(grad_before),
         })
 
-        if loss1 < best_loss:
-            best_loss = loss1
-            best_beta = beta
+        if loss1_float < best_loss:
+            best_loss = loss1_float
+            best_beta = float(beta)
 
         if len(history) >= int(cfg["PATIENCE_LAST5"]):
             last_losses = [row["loss"] for row in history[-int(cfg["PATIENCE_LAST5"]):]]
@@ -735,7 +843,7 @@ def run_sequential_walsh_maxcut(cfg: Dict[str, object]) -> Dict[str, object]:
 if __name__ == "__main__":
     summary = run_sequential_walsh_maxcut(CONFIG)
 
-    print("\nResumo final")
+    PRINT_OK_PLACEHOLDER
     print(json.dumps({
         "graph_signature": summary["graph_signature"],
         "best_cut_bruteforce": summary["best_cut_bruteforce"],

@@ -88,6 +88,18 @@ def ancilla_success_probability(full_state, n):
     return float(qml.math.real(p))
 
 
+def _postselected_outputs_from_full_state(full_state, n, eps=1e-14):
+    full_state = qml.math.reshape(full_state, (2, 2**n))
+    reg_state = full_state[1]
+
+    success_p = qml.math.real(qml.math.sum(qml.math.conj(reg_state) * reg_state))
+    norm = qml.math.sqrt(success_p + eps)
+    postselected_state = reg_state / norm
+    postselected_probabilities = qml.math.abs(postselected_state) ** 2
+
+    return success_p, postselected_state, postselected_probabilities
+
+
 # ============================================================
 # Bloco Walsh individual U_j
 # ============================================================
@@ -181,6 +193,59 @@ def run_subcircuit(avec, n, list_j, er=1e-6, return_full_state=False):
         "success_probability_ancilla_1": ancilla_success_probability(full_state, n),
         "postselected_state": reg_state,
         "postselected_probabilities": prob(reg_state),
+    }
+
+    if return_full_state:
+        out["full_state"] = full_state
+
+    return out
+
+
+def run_subcircuit_differentiable(avec, n, list_j, er=1e-6, return_full_state=False):
+    """
+    Versão diferenciável do subcircuito para uso com backprop.
+    Mantém a mesma semântica de saída, mas evita conversões para float
+    no caminho da loss.
+    """
+    list_j = list(list_j)
+
+    for j in list_j:
+        if not (0 <= j < len(avec)):
+            raise ValueError(f"Índice j={j} fora do tamanho de avec.")
+        if j >= 2**n:
+            raise ValueError(f"Para n={n}, o maior índice permitido é {2**n - 1}.")
+
+    dev = qml.device("default.qubit", wires=n + 1)
+
+    @qml.qnode(dev, interface="autograd", diff_method="backprop")
+    def circuit(avec, er=1e-6):
+        avec_eff = er * avec
+
+        for w in range(n + 1):
+            qml.Hadamard(wires=w)
+
+        if 0 in list_j:
+            qml.PhaseShift(-avec_eff[0], wires=0)
+
+        list_j_nonzero = [j for j in list_j if j != 0]
+        if len(list_j_nonzero) > 0:
+            qml.ctrl(selected_walsh_blocks, control=0)(avec_eff, n, list_j_nonzero)
+
+        qml.Hadamard(wires=0)
+        qml.PhaseShift(-np.pi / 2, wires=0)
+
+        return qml.state()
+
+    full_state = circuit(avec, er=er)
+    success_p, postselected_state, postselected_probabilities = _postselected_outputs_from_full_state(
+        full_state, n
+    )
+
+    out = {
+        "indices": list_j,
+        "success_probability_ancilla_1": success_p,
+        "postselected_state": postselected_state,
+        "postselected_probabilities": postselected_probabilities,
     }
 
     if return_full_state:
