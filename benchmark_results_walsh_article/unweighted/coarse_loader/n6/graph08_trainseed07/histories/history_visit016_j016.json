@@ -1,0 +1,167 @@
+[
+  {
+    "epoch": 0,
+    "beta": 0.25160341827815896,
+    "coefficient": 0.15483358646977452,
+    "loss": -5.190347655703968,
+    "expected_cut": 5.190347655703968,
+    "best_measured_cut": 5.0,
+    "success_probability_ancilla_1": 0.03899429341458284,
+    "max_postselected_probability": 0.06361708357619482,
+    "grad": 0.2187643569454115
+  },
+  {
+    "epoch": 1,
+    "beta": 0.2416250576067733,
+    "coefficient": 0.14893040150476544,
+    "loss": -5.192326046618813,
+    "expected_cut": 5.192326046618813,
+    "best_measured_cut": 5.0,
+    "success_probability_ancilla_1": 0.03876072378340262,
+    "max_postselected_probability": 0.06334953968615004,
+    "grad": 0.205276503422403
+  },
+  {
+    "epoch": 2,
+    "beta": 0.23168685925751367,
+    "coefficient": 0.14302315459598583,
+    "loss": -5.19415307995685,
+    "expected_cut": 5.19415307995685,
+    "best_measured_cut": 5.0,
+    "success_probability_ancilla_1": 0.03853604386115128,
+    "max_postselected_probability": 0.0630664777176428,
+    "grad": 0.19114894090832463
+  },
+  {
+    "epoch": 3,
+    "beta": 0.2218110823450063,
+    "coefficient": 0.13712647400007688,
+    "loss": -5.195820478958672,
+    "expected_cut": 5.195820478958672,
+    "best_measured_cut": 5.0,
+    "success_probability_ancilla_1": 0.03832079948215594,
+    "max_postselected_probability": 0.06276856062582976,
+    "grad": 0.17642159197955465
+  },
+  {
+    "epoch": 4,
+    "beta": 0.21202427282992245,
+    "coefficient": 0.1312577821636781,
+    "loss": -5.197321014346511,
+    "expected_cut": 5.197321014346511,
+    "best_measured_cut": 5.0,
+    "success_probability_ancilla_1": 0.038115542355235336,
+    "max_postselected_probability": 0.0624567768755312,
+    "grad": 0.16114773042003697
+  },
+  {
+    "epoch": 5,
+    "beta": 0.20235784898981485,
+    "coefficient": 0.12543767244496037,
+    "loss": -5.198648903153504,
+    "expected_cut": 5.198648903153504,
+    "best_measured_cut": 5.0,
+    "success_probability_ancilla_1": 0.03792082181143744,
+    "max_postselected_probability": 0.06213249794540604,
+    "grad": 0.14539576491812187
+  },
+  {
+    "epoch": 6,
+    "beta": 0.19284866676821855,
+    "coefficient": 0.11969027215429362,
+    "loss": -5.199800264308077,
+    "expected_cut": 5.199800264308077,
+    "best_measured_cut": 5.0,
+    "success_probability_ancilla_1": 0.03773717397244708,
+    "max_postselected_probability": 0.06179753743272455,
+    "grad": 0.12925098514094285
+  },
+  {
+    "epoch": 7,
+    "beta": 0.18353949914894493,
+    "coefficient": 0.11404354972486432,
+    "loss": -5.200773618646949,
+    "expected_cut": 5.200773618646949,
+    "best_measured_cut": 5.0,
+    "success_probability_ancilla_1": 0.03756510794478064,
+    "max_postselected_probability": 0.061454207298863466,
+    "grad": 0.11281713107927034
+  },
+  {
+    "epoch": 8,
+    "beta": 0.17447933298254403,
+    "coefficient": 0.1085295042587389,
+    "loss": -5.201570407641825,
+    "expected_cut": 5.201570407641825,
+    "best_measured_cut": 5.0,
+    "success_probability_ancilla_1": 0.03740508880256816,
+    "max_postselected_probability": 0.061105364381515745,
+    "grad": 0.09621758187910058
+  },
+  {
+    "epoch": 9,
+    "beta": 0.16572335386866632,
+    "coefficient": 0.10318415480190377,
+    "loss": -5.202195487165351,
+    "expected_cut": 5.202195487165351,
+    "best_measured_cut": 5.0,
+    "success_probability_ancilla_1": 0.03725751745765836,
+    "max_postselected_probability": 0.06075443753612124,
+    "grad": 0.07959588645148799
+  },
+  {
+    "epoch": 10,
+    "beta": 0.15733246306042295,
+    "coefficient": 0.09804722976809216,
+    "loss": -5.20265753156157,
+    "expected_cut": 5.20265753156157,
+    "best_measured_cut": 5.0,
+    "success_probability_ancilla_1": 0.03712270808202982,
+    "max_postselected_probability": 0.060405423194626405,
+    "grad": 0.06311528612596533
+  },
+  {
+    "epoch": 11,
+    "beta": 0.14937216396310965,
+    "coefficient": 0.0931614529096476,
+    "loss": -5.2029692633218945,
+    "expected_cut": 5.2029692633218945,
+    "best_measured_cut": 5.0,
+    "success_probability_ancilla_1": 0.03700086455334857,
+    "max_postselected_probability": 0.06006283574269973,
+    "grad": 0.04695683267793048
+  },
+  {
+    "epoch": 12,
+    "beta": 0.14191068800125015,
+    "coefficient": 0.08857134280905422,
+    "loss": -5.203147412466123,
+    "expected_cut": 5.203147412466123,
+    "best_measured_cut": 5.0,
+    "success_probability_ancilla_1": 0.036892058350977905,
+    "max_postselected_probability": 0.059731600333746325,
+    "grad": 0.03131571930206339
+  },
+  {
+    "epoch": 13,
+    "beta": 0.135016316932864,
+    "coefficient": 0.08432149854827693,
+    "loss": -5.203212317644288,
+    "expected_cut": 5.203212317644288,
+    "best_measured_cut": 5.0,
+    "success_probability_ancilla_1": 0.03679621119780918,
+    "max_postselected_probability": 0.05941688103670914,
+    "grad": 0.016395560970100795
+  },
+  {
+    "epoch": 14,
+    "beta": 0.12875400430570227,
+    "coefficient": 0.08045443705216924,
+    "loss": -5.203187117510534,
+    "expected_cut": 5.203187117510534,
+    "best_measured_cut": 5.0,
+    "success_probability_ancilla_1": 0.03671308613369153,
+    "max_postselected_probability": 0.05912384723683817,
+    "grad": 0.0024006178283090145
+  }
+]
