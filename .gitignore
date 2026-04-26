@@ -1,0 +1,57 @@
+# Sistema
+.DS_Store
+Thumbs.db
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Ambientes virtuais
+.venv/
+venv/
+env/
+ENV/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# IDEs
+.vscode/
+.idea/
+
+# Dados e resultados
+
+# Arquivos grandes/comprimidos
+*.zip
+*.tar
+*.tar.gz
+*.rar
+*.7z
+
+# Pesos/modelos
+*.pt
+*.pth
+*.ckpt
+*.h5
+*.onnx
+*.pkl
+*.joblib
+
+# Dados
+
+# Imagens/figuras geradas
+
+# Secrets
+.env
+.env.*
+*.key
+*.pem
+secrets.json
+credentials.json
